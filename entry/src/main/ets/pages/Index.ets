@@ -1,22 +1,18 @@
+import { Books } from '../components/Books';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
-import { Books } from '../components/Books';
-import { ArcList, ArcListItem, ArcListAttribute, ArcListItemAttribute, router } from '@kit.ArkUI';
+import { ArcList, ArcListItem, ArcListAttribute, ArcListItemAttribute } from '@kit.ArkUI';
 
 @Entry
 @Component
 struct Index {
-
-  @State content: string = '';
+  content: string = ``;
   @State breeds: Books[] = [];
-  @State currentIndex: number = 1;
-  @State message: string = '';
-  link: string = 'jsonplaceholder.typicode.com/todos';
-
+  link: string = `jsonplaceholder.typicode.com/todos`;
   private scroller: Scroller = new Scroller();
 
   async aboutToAppear() {
-    this.getTransferSynEx();
+    await this.getTransferSynEx();
   }
 
   @Builder
@@ -26,9 +22,6 @@ struct Index {
         .width(20)
         .height(20)
     }
-    .onClick(() => {
-      router.pushUrl({ url: 'pages/PostRequestContent' })
-    })
     .padding(8)
   }
 
@@ -40,16 +33,13 @@ struct Index {
         .height(20)
     }
     .backgroundColor(Color.Orange)
-    .onClick(() => {
-      router.pushUrl({ url: 'pages/DeleteRequestContent' })
-    })
     .padding(8)
   }
 
   build() {
     Column() {
       ArcList({ initialIndex: 0, scroller: this.scroller }) {
-        ForEach(this.breeds, (breed: Books, index: number) => {
+        ForEach(this.breeds, (breed: Books) => {
           ArcListItem() {
             Column() {
               Text(`User Id: ${breed.userId}`)
@@ -77,12 +67,12 @@ struct Index {
             start: {
               builder: () => {
                 this.itemStart()
-              },
+              }
             },
             end: {
               builder: () => {
                 this.itemEnd()
-              },
+              }
             }
           })
         }, (breed: Books) => breed.id)
@@ -95,25 +85,31 @@ struct Index {
   }
 
   private getTransferSynEx = async () => {
-    const getURL = 'https://' + this.link;
+    const getURL = `https://` + this.link;
+    const request = new rcp.Request(getURL, 'GET');
+    const session = rcp.createSession();
 
-    const sessions = rcp.createSession();
-    sessions.get(getURL)
-      .then((responses) => {
-        const responseText = `${JSON.stringify(responses)}`;
-        const data: Books[] = JSON.parse(responseText);
-        this.breeds = data;
-        this.content = '';
-        data.forEach((breed: Books, index: number) => {
-          this.content += `#${index + 1}\n`;
-          this.content += `User Id: ${breed.userId}\n`;
-          this.content += `Id: ${breed.id}\n`;
-          this.content += `Title: ${breed.title}\n`;
-          this.content += `Completed: ${breed.completed}\n\n`;
-        });
-      })
-      .catch((err: BusinessError) => {
-        this.content = `API request failed: ${JSON.stringify(err)}`;
-      });
-  };
+    try {
+      console.info('Fetching data from:', getURL);
+      const response = await session.fetch(request);
+
+      console.info('Response status:', response.statusCode);
+
+      if (response.statusCode === 200) {
+        const jsonData = response.toJSON();
+        console.info('Data received:', JSON.stringify(jsonData).substring(0, 100));
+
+        this.breeds = jsonData as Books[];
+        console.info('Breeds length:', this.breeds.length);
+      } else {
+        console.error('Error status:', response.statusCode);
+        this.content = `API error: ${response.statusCode}`;
+      }
+
+    } catch (err) {
+      const error = err as BusinessError;
+      console.error('Request failed:', JSON.stringify(error));
+      this.content = `API request failed: ${error.message}`;
+    }
+  }
 }
